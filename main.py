@@ -11,6 +11,9 @@ IMMEDIATE=2
 BRANCH=4
 PROG_CHAIN=8
 
+BASIC=1
+EXTENDED=2
+
 hike_chain_sample = {
   'name' : '',
   'id': 0,
@@ -22,7 +25,8 @@ hike_chain_sample = {
 hike_instruction_sample = {
   'name' : '',
   'chain' : '',
-  'id' : 0,
+  'class' : 0,
+  'op' : 0,
   'params' : [],
   'globl_instr_cnt' : -1,
   'chain_instr_cnt' : -1,
@@ -44,14 +48,28 @@ hike_param_sample = {
 }
 
 hike_instructions = {
-  'JEQ64': {'id':1,'params':[REGISTER, IMMEDIATE, BRANCH]}, 
-  'MOV64': {'id':2,'params':[REGISTER, IMMEDIATE]},
-  'JGT64': {'id':3,'params':[REGISTER, IMMEDIATE, BRANCH]}, 
-  'CALL': {'id':4,'params':[PROG_CHAIN, IMMEDIATE]},
-  'EXIT': {'id':5,'params':[]},
-  'JA64': {'id':6,'params':[BRANCH]},
-  'ADDS64': {'id':7,'params':[REGISTER, IMMEDIATE]}
+  'JA64':  {'class':0x05, 'op':0x00,'modifier':0x00,'dst': '','src': '','off':'%1', 'imm': '','template':BASIC,
+            'params':[BRANCH]},
+  'JEQ64': {'class':0x05, 'op':0x10,'modifier':0x00,'dst': '%1','src': '','off':'%3', 'imm': '%2','template':BASIC,
+            'params':[REGISTER, IMMEDIATE, BRANCH]}, 
+  'JGT64': {'class':0x05, 'op':0x20,'modifier':0x00,'template':BASIC,'params':[REGISTER, IMMEDIATE, BRANCH]}, 
+  'JGE64': {'class':0x05, 'op':0x30,'modifier':0x00,'template':BASIC,'params':[REGISTER, IMMEDIATE, BRANCH]}, 
+  'JNE64': {'class':0x05, 'op':0x50,'modifier':0x00,'template':BASIC,'params':[REGISTER, IMMEDIATE, BRANCH]},
+  'JLT64': {'class':0x05, 'op':0xA0,'modifier':0x00,'template':BASIC,'params':[REGISTER, IMMEDIATE, BRANCH]}, 
+  'JLE64': {'class':0x05, 'op':0xB0,'modifier':0x00,'template':BASIC,'params':[REGISTER, IMMEDIATE, BRANCH]},
+  'CALL':  {'class':0x05, 'op':0xF0,'modifier':0x00,'template':EXTENDED,'params':[PROG_CHAIN, IMMEDIATE]},
+  'EXIT':  {'class':0x05, 'op':0x90,'modifier':0x00,'template':BASIC,'params':[]},
+  'ADDS64':{'class':0x07, 'op':0x00,'modifier':0x00,'template':BASIC,'params':[REGISTER, IMMEDIATE]},
+  'MOV64': {'class':0x07, 'op':0xb0,'modifier':0x00,'template':BASIC,'params':[REGISTER, IMMEDIATE]},
 }
+
+#define HIKE_JA				0x00
+#define	HIKE_JEQ			0x10	/* == */
+#define	HIKE_JGT			0x20	/* >  */
+#define	HIKE_JGE			0x30	/* >= */
+#define	HIKE_JNE			0x50	/* != */
+#define HIKE_JLT			0xa0	/* <  */
+#define HIKE_JLE			0xb0	/* <= */
 
 hike_registers = {
   'A': {'id':0}, 
@@ -211,10 +229,11 @@ def process_instruction(my_tokens: list) -> dict:
   instr_model = hike_instructions[my_tokens[0]]
   instruction = copy.deepcopy(hike_instruction_sample)
   instruction['name'] = my_tokens[0]
-  instruction['id'] = instr_model['id']
+  instruction['class'] = instr_model['class']
+  instruction['op'] = instr_model['op']
   instruction['params'] = []
 
-  #print ('instr id: '+str(instr_model['id']))
+  #print ('instr id: '+str(instr_model['op']))
   if (len(my_tokens)-1) != len(instr_model['params']):
     fatal_error ("WRONG PARAMETER NUMBER, EXPECTED:"+str(instr_model['num_param']))
   param_num=0
@@ -306,6 +325,29 @@ def resolve_label_offsets():
 
   print ('already resolved: '+str(already_resolved)+
           ' resolved: '+str(resolved))
+
+def single_oper_bytecode (my_instr):
+  instr_model = hike_instructions[my_instr['name']]
+  if instr_model['template'] == BASIC:
+    pass
+
+
+
+  elif instr_model['template'] == EXTENDED:
+    
+    
+    
+    pass
+  else:
+    error_string = 'UNNKOWN ERROR IN SINGLE_OPERATION_BYTECODE'
+    fatal_error(error_string, my_instr['line_number']) 
+
+def generate_bytecode():
+  for chain_name, chain in global_chains.items():
+    #print (chain)
+    for instr in chain['instructions']:
+      #print(instr['name'])
+      single_oper_bytecode(instr)
 
 with open('in.hikeasm') as f:
   all_lines = f.readlines()
@@ -401,7 +443,10 @@ pprint.pprint(all_jmp_labels)
 resolve_call_references()
 resolve_label_offsets()
 
-pprint.pprint(global_chains)
+generate_bytecode()
+
+
+#pprint.pprint(global_chains)
 #pprint.pprint(jump_instructions)
 #pprint.pprint(call_instructions)
 
