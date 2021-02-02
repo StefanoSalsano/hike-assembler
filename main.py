@@ -16,6 +16,11 @@ PROG_CHAIN=16
 BASIC=1
 EXTENDED=2
 
+MAX_U16 = 2**16
+MAX_U24 = 2**24
+MAX_U32 = 2**32
+
+
 hike_chain_sample = {
   'name' : '',
   'id': 0,
@@ -57,7 +62,7 @@ hike_instr_type_jump2 = { 'template':BASIC, 'dst': '%1','src': '','off':'%3', 'i
                            'params':[REGISTER_1, IMMEDIATE, BRANCH]
 }
 
-hike_instr_type_hcall = { 'template':EXTENDED, 'off':'%1', 'imm': '%2',
+hike_instr_type_hcall = { 'template':EXTENDED, 'prch':'%1', 'imm': '%2',
                          'params':[PROG_CHAIN, IMMEDIATE]
 }
 
@@ -393,15 +398,26 @@ def single_oper_bytecode (my_instr):
     my_instr['bytecode'].append(my_byte1)
 
     if instr_model['more']['off'] != '':
-      my_byte2 = resolved_params[int(instr_model['more']['off'][1:2])-1] % 256
-      my_byte3 = resolved_params[int(instr_model['more']['off'][1:2])-1] // 256
+      resolved = resolved_params[int(instr_model['more']['off'][1:2])-1]
+      if resolved >= MAX_U16/2 or resolved < - MAX_U16/2:
+        error_string = 'OUT OF RANGE OFFSET PARAMETER (16 BITS)'
+        fatal_error(error_string, my_instr['line_number'])      
+      if resolved < 0 :
+        resolved = resolved + MAX_U16        
+      my_byte2 = resolved % 256
+      my_byte3 = resolved // 256
 
     my_instr['bytecode'].append(my_byte2)
     my_instr['bytecode'].append(my_byte3)
 
     my_imm = 0
     if instr_model['more']['imm'] != '':
-      my_imm = resolved_params[int(instr_model['more']['imm'][1:2])-1]
+      my_imm = resolved_params[int(instr_model['more']['imm'][1:2])-1]      
+      if my_imm >= MAX_U32 or my_imm < - MAX_U32/2:
+        error_string = 'OUT OF RANGE IMMEDIATE PARAMETER (32 BITS)'
+        fatal_error(error_string, my_instr['line_number'])      
+      if my_imm < 0 :
+        my_imm = my_imm + MAX_U32        
 
     my_instr['bytecode'].append(my_imm % 256)
     my_imm = my_imm // 256
@@ -414,8 +430,13 @@ def single_oper_bytecode (my_instr):
   elif instr_model['more']['template'] == EXTENDED:
     
     my_off=0
-    if instr_model['more']['off'] != '':
-      my_off= resolved_params[int(instr_model['more']['off'][1:2])-1]
+    if instr_model['more']['prch'] != '':
+      my_off= resolved_params[int(instr_model['more']['prch'][1:2])-1]
+      if my_off >= MAX_U24 or my_off < - MAX_U24/2:
+        error_string = 'OUT OF RANGE PROG/CHAIN PARAMETER (24 BITS)'
+        fatal_error(error_string, my_instr['line_number'])      
+      if my_off < 0 :
+        my_off = my_off + MAX_U24
 
     my_instr['bytecode'].append(my_off % 256)
     my_off = my_off // 256
@@ -426,6 +447,11 @@ def single_oper_bytecode (my_instr):
     my_imm = 0
     if instr_model['more']['imm'] != '':
       my_imm = resolved_params[int(instr_model['more']['imm'][1:2])-1]
+      if my_imm >= MAX_U32 or my_imm < - MAX_U32/2:
+        error_string = 'OUT OF RANGE IMMEDIATE PARAMETER (32 BITS)'
+        fatal_error(error_string, my_instr['line_number'])      
+      if my_imm < 0 :
+        my_imm = my_imm + MAX_U32        
 
     my_instr['bytecode'].append(my_imm % 256)
     my_imm = my_imm // 256
@@ -434,14 +460,12 @@ def single_oper_bytecode (my_instr):
     my_instr['bytecode'].append(my_imm % 256)
     my_imm = my_imm // 256
     my_instr['bytecode'].append(my_imm)
-
-
-    
+   
   else:
     error_string = 'UNNKOWN ERROR IN SINGLE_OPERATION_BYTECODE'
     fatal_error(error_string, my_instr['line_number']) 
 
-  print (my_instr['bytecode'])
+  print(' '.join('{:02X}'.format(x) for x in my_instr['bytecode']))
 
 
 
