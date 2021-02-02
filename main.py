@@ -2,14 +2,16 @@ import copy
 import pprint
 
 # TODO CHECK TO AVOID REDEFINITION OF A LABEL OR OF A PROGRAM/CHAIN NAME
+# TODA ACCEPT ALSO A PROGRAM ID OR CHAIN ID IN ADDITION TO PROG/CHAIN NAME
 
 COMMA_IS_MANDATORY = True
 #COMMA_IS_MANDATORY = False
 
-REGISTER=1
-IMMEDIATE=2
-BRANCH=4
-PROG_CHAIN=8
+REGISTER_1=1
+REGISTER_2=2
+IMMEDIATE=4
+BRANCH=8
+PROG_CHAIN=16
 
 BASIC=1
 EXTENDED=2
@@ -47,20 +49,43 @@ hike_param_sample = {
   'prog_chain_resolved' : False
 }
 
+hike_instr_type_jump1 = { 'template':BASIC, 'dst': '','src': '','off':'%1', 'imm': '',
+                     'params':[BRANCH]
+}
+
+hike_instr_type_jump2 = { 'template':BASIC, 'dst': '%1','src': '','off':'%3', 'imm': '%2',
+                           'params':[REGISTER_1, IMMEDIATE, BRANCH]
+}
+
+hike_instr_type_hcall = { 'template':EXTENDED, 'off':'%1', 'imm': '%2',
+                         'params':[PROG_CHAIN, IMMEDIATE]
+}
+
+hike_instr_type_exit = { 'template':BASIC, 'dst': '','src': '','off':'', 'imm': '',
+                         'params':[]
+}
+
+hike_instr_type_alu_imm = { 'template':BASIC, 'dst': '%1','src': '','off':'', 'imm': '%2',
+                         'params':[REGISTER_1, IMMEDIATE]
+}
+
+hike_instr_type_alu_reg = { 'template':BASIC, 'dst': '%1','src': '%2','off':'', 'imm': '',
+                         'params':[REGISTER_1, REGISTER_2]
+}
+
 hike_instructions = {
-  'JA64':  {'class':0x05, 'op':0x00,'modifier':0x00,'dst': '','src': '','off':'%1', 'imm': '','template':BASIC,
-            'params':[BRANCH]},
-  'JEQ64': {'class':0x05, 'op':0x10,'modifier':0x00,'dst': '%1','src': '','off':'%3', 'imm': '%2','template':BASIC,
-            'params':[REGISTER, IMMEDIATE, BRANCH]}, 
-  'JGT64': {'class':0x05, 'op':0x20,'modifier':0x00,'template':BASIC,'params':[REGISTER, IMMEDIATE, BRANCH]}, 
-  'JGE64': {'class':0x05, 'op':0x30,'modifier':0x00,'template':BASIC,'params':[REGISTER, IMMEDIATE, BRANCH]}, 
-  'JNE64': {'class':0x05, 'op':0x50,'modifier':0x00,'template':BASIC,'params':[REGISTER, IMMEDIATE, BRANCH]},
-  'JLT64': {'class':0x05, 'op':0xA0,'modifier':0x00,'template':BASIC,'params':[REGISTER, IMMEDIATE, BRANCH]}, 
-  'JLE64': {'class':0x05, 'op':0xB0,'modifier':0x00,'template':BASIC,'params':[REGISTER, IMMEDIATE, BRANCH]},
-  'CALL':  {'class':0x05, 'op':0xF0,'modifier':0x00,'template':EXTENDED,'params':[PROG_CHAIN, IMMEDIATE]},
-  'EXIT':  {'class':0x05, 'op':0x90,'modifier':0x00,'template':BASIC,'params':[]},
-  'ADDS64':{'class':0x07, 'op':0x00,'modifier':0x00,'template':BASIC,'params':[REGISTER, IMMEDIATE]},
-  'MOV64': {'class':0x07, 'op':0xb0,'modifier':0x00,'template':BASIC,'params':[REGISTER, IMMEDIATE]},
+  'JA64':  {'class':0x05, 'op':0x00,'modifier':0x00,'more': hike_instr_type_jump1},
+  'JEQ64': {'class':0x05, 'op':0x10,'modifier':0x00,'more': hike_instr_type_jump2}, 
+  'JGT64': {'class':0x05, 'op':0x20,'modifier':0x00,'more': hike_instr_type_jump2}, 
+  'JGE64': {'class':0x05, 'op':0x30,'modifier':0x00,'more': hike_instr_type_jump2}, 
+  'JNE64': {'class':0x05, 'op':0x50,'modifier':0x00,'more': hike_instr_type_jump2},
+  'JLT64': {'class':0x05, 'op':0xA0,'modifier':0x00,'more': hike_instr_type_jump2}, 
+  'JLE64': {'class':0x05, 'op':0xB0,'modifier':0x00,'more': hike_instr_type_jump2},
+  'HCALL': {'class':0x05, 'op':0xF0,'modifier':0x00,'more': hike_instr_type_hcall},
+  'EXIT':  {'class':0x05, 'op':0x90,'modifier':0x00,'more': hike_instr_type_exit},
+  'ADDS64':{'class':0x07, 'op':0x00,'modifier':0x00,'more':hike_instr_type_alu_imm},
+  'MOV64': {'class':0x07, 'op':0xb0,'modifier':0x00,'more':hike_instr_type_alu_imm},
+  'MOVR64': {'class':0x07, 'op':0xb0,'modifier':0x08,'more':hike_instr_type_alu_reg},
 }
 
 #define HIKE_JA				0x00
@@ -72,9 +97,9 @@ hike_instructions = {
 #define HIKE_JLE			0xb0	/* <= */
 
 hike_registers = {
-  'A': {'id':0}, 
-  'B': {'id':1},
-  'W': {'id':2}, 
+  'A': {'code':0}, 
+  'B': {'code':1},
+  'W': {'code':2}, 
 }
 
 hike_jump_instr_sample = {
@@ -86,8 +111,6 @@ hike_call_inst_sample = {
   'chain_name' : '',
   'instr' : {} 
 }
-
-
 
 def check_commas (my_tokens):
   token_num = len (my_tokens)
@@ -124,11 +147,11 @@ def def_progs_chains (my_tokens):
     fatal_error ("ERROR IN #DEF (WRONG NUMBER OF PARAMS)")
 
   if my_tokens[1].startswith('P_'):
-    all_progs [my_tokens[1]] =  my_tokens[2];
+    all_progs [my_tokens[1]] =  int(my_tokens[2],0)
     #print ("DEFINED PROG ID: "+all_progs [my_tokens[1]])
 
   elif my_tokens[1].startswith('C_'):
-    all_chains [my_tokens[1]] =  my_tokens[2];
+    all_chains [my_tokens[1]] =  int(my_tokens[2],0)
     #print ("DEFINED CHAIN ID: "+all_chains [my_tokens[1]])
 
   else: 
@@ -157,7 +180,8 @@ def start_chain (my_tokens):
 def end_chain (my_tokens):
   global current_chain
   current_chain['last_instr']=instr_cnt-1
-  global_chains[current_chain['name']]=copy.deepcopy(current_chain)
+  #global_chains[current_chain['name']]=copy.deepcopy(current_chain)
+  global_chains[current_chain['name']]=current_chain
   current_chain = {}
 
 def process_instruction(my_tokens: list) -> dict:
@@ -179,10 +203,18 @@ def process_instruction(my_tokens: list) -> dict:
     global jump_instructions
     global call_instructions
 
+
+
+
     return_param = copy.deepcopy(hike_param_sample)
-    if my_type==REGISTER:
+    if my_type==REGISTER_1:
       if my_token in hike_registers:
         return_param['reg_name_1'] = my_token
+      else:
+        fatal_error ("UNNKOWN REGISTER")
+    elif my_type==REGISTER_2:
+      if my_token in hike_registers:
+        return_param['reg_name_2'] = my_token
       else:
         fatal_error ("UNNKOWN REGISTER")
     elif my_type==IMMEDIATE:
@@ -234,10 +266,10 @@ def process_instruction(my_tokens: list) -> dict:
   instruction['params'] = []
 
   #print ('instr id: '+str(instr_model['op']))
-  if (len(my_tokens)-1) != len(instr_model['params']):
-    fatal_error ("WRONG PARAMETER NUMBER, EXPECTED:"+str(instr_model['num_param']))
+  if (len(my_tokens)-1) != len(instr_model['more']['params']):
+    fatal_error ("WRONG PARAMETER NUMBER, EXPECTED:"+str(len(instr_model['more']['params'])))
   param_num=0
-  for param_type in instr_model['params']:
+  for param_type in instr_model['more']['params']:
     param_num=param_num+1
     instruction['params'].append(get_param(param_type,
                                           my_tokens[param_num],
@@ -328,19 +360,89 @@ def resolve_label_offsets():
 
 def single_oper_bytecode (my_instr):
   instr_model = hike_instructions[my_instr['name']]
-  if instr_model['template'] == BASIC:
-    pass
+  my_byte0 = instr_model['class'] | instr_model['op'] | instr_model['modifier']
+  
+  my_instr['bytecode'].append(my_byte0)
+  
+  resolved_params=[]
+  param_index=0
+  for param_type in instr_model['more']['params']:
+    param=my_instr['params'][param_index]
+    if param_type == REGISTER_1:
+      resolved_params.append(hike_registers[param['reg_name_1']]['code'] )
+    elif param_type == REGISTER_2:
+      resolved_params.append(hike_registers[param['reg_name_2']]['code'] )
+    elif param_type == IMMEDIATE:
+      resolved_params.append(param['value'])
+    elif param_type == BRANCH:
+      resolved_params.append(param['offset'])
+    elif param_type == PROG_CHAIN:
+      resolved_params.append(param['prog_chain_id'])
+
+  my_byte1=0
+  my_byte2=0
+  my_byte3=0
+
+  if instr_model['more']['template'] == BASIC:
+    if instr_model['more']['dst'] != '':
+      my_byte1 = my_byte1 | resolved_params[int(instr_model['more']['dst'][1:2])-1]
+    if instr_model['more']['src'] != '':
+      my_byte1 = my_byte1 | 16 * resolved_params[int(instr_model['more']['src'][1:2])-1]
+    
+    my_instr['bytecode'].append(my_byte1)
+
+    if instr_model['more']['off'] != '':
+      my_byte2 = resolved_params[int(instr_model['more']['off'][1:2])-1] % 256
+      my_byte3 = resolved_params[int(instr_model['more']['off'][1:2])-1] // 256
+
+    my_instr['bytecode'].append(my_byte2)
+    my_instr['bytecode'].append(my_byte3)
+
+    my_imm = 0
+    if instr_model['more']['imm'] != '':
+      my_imm = resolved_params[int(instr_model['more']['imm'][1:2])-1]
+
+    my_instr['bytecode'].append(my_imm % 256)
+    my_imm = my_imm // 256
+    my_instr['bytecode'].append(my_imm % 256)
+    my_imm = my_imm // 256
+    my_instr['bytecode'].append(my_imm % 256)
+    my_imm = my_imm // 256
+    my_instr['bytecode'].append(my_imm)
+
+  elif instr_model['more']['template'] == EXTENDED:
+    
+    my_off=0
+    if instr_model['more']['off'] != '':
+      my_off= resolved_params[int(instr_model['more']['off'][1:2])-1]
+
+    my_instr['bytecode'].append(my_off % 256)
+    my_off = my_off // 256
+    my_instr['bytecode'].append(my_off % 256)
+    my_off = my_off // 256
+    my_instr['bytecode'].append(my_off % 256)
+
+    my_imm = 0
+    if instr_model['more']['imm'] != '':
+      my_imm = resolved_params[int(instr_model['more']['imm'][1:2])-1]
+
+    my_instr['bytecode'].append(my_imm % 256)
+    my_imm = my_imm // 256
+    my_instr['bytecode'].append(my_imm % 256)
+    my_imm = my_imm // 256
+    my_instr['bytecode'].append(my_imm % 256)
+    my_imm = my_imm // 256
+    my_instr['bytecode'].append(my_imm)
 
 
-
-  elif instr_model['template'] == EXTENDED:
     
-    
-    
-    pass
   else:
     error_string = 'UNNKOWN ERROR IN SINGLE_OPERATION_BYTECODE'
     fatal_error(error_string, my_instr['line_number']) 
+
+  print (my_instr['bytecode'])
+
+
 
 def generate_bytecode():
   for chain_name, chain in global_chains.items():
@@ -433,6 +535,7 @@ for line in all_lines:
       fatal_error ("UNNKOWN INSTRUCTION ERROR: "+tokens[0])
 
 #end of first pass on the code
+
 
 print ('Total instructions: '+str(instr_cnt))
 print ('Number of chains: '+str(len(global_chains)))
