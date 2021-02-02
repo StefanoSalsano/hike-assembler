@@ -378,6 +378,7 @@ def single_oper_bytecode (my_instr):
       resolved_params.append(param['offset'])
     elif param_type == PROG_CHAIN:
       resolved_params.append(param['prog_chain_id'])
+    param_index=param_index+1
 
   my_byte1=0
   my_byte2=0
