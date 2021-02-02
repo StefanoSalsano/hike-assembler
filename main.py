@@ -20,8 +20,19 @@ BASIC=1
 EXTENDED=2
 
 MAX_U16 = 2**16
+'''for unsigned int, the maximum value is MAX_U16-1
+for signed int, the range is from -MAX_U16/2 to MAX_U16/2-1
+'''
+
 MAX_U24 = 2**24
+'''for unsigned int, the maximum value is MAX_U24-1
+for signed int, the range is from -MAX_U24/2 to MAX_U24/2-1
+'''
+
 MAX_U32 = 2**32
+'''for unsigned int, the maximum value is MAX_U32-1
+for signed int, the range is from -MAX_U32/2 to MAX_U32/2-1
+'''
 
 
 hike_chain_sample = {
@@ -96,14 +107,6 @@ hike_instructions = {
   'MOVR64': {'class':0x07, 'op':0xb0,'modifier':0x08,'more':hike_instr_type_alu_reg},
 }
 
-#define HIKE_JA				0x00
-#define	HIKE_JEQ			0x10	/* == */
-#define	HIKE_JGT			0x20	/* >  */
-#define	HIKE_JGE			0x30	/* >= */
-#define	HIKE_JNE			0x50	/* != */
-#define HIKE_JLT			0xa0	/* <  */
-#define HIKE_JLE			0xb0	/* <= */
-
 hike_registers = {
   'A': {'code':0}, 
   'B': {'code':1},
@@ -155,12 +158,18 @@ def def_progs_chains (my_tokens):
     fatal_error ("ERROR IN #DEF (WRONG NUMBER OF PARAMS)")
 
   if my_tokens[1].startswith('P_'):
-    all_progs [my_tokens[1]] =  int(my_tokens[2],0)
-    #print ("DEFINED PROG ID: "+all_progs [my_tokens[1]])
+    try:
+      all_progs [my_tokens[1]] =  int(my_tokens[2],0)
+      #print ("DEFINED PROG ID: "+all_progs [my_tokens[1]])
+    except:
+      fatal_error ("ERROR IN #DEF (PROGRAM ID CANNOT BE PARSED)")
 
   elif my_tokens[1].startswith('C_'):
-    all_chains [my_tokens[1]] =  int(my_tokens[2],0)
-    #print ("DEFINED CHAIN ID: "+all_chains [my_tokens[1]])
+    try:
+      all_chains [my_tokens[1]] =  int(my_tokens[2],0)
+      #print ("DEFINED CHAIN ID: "+all_chains [my_tokens[1]])
+    except:
+      fatal_error ("ERROR IN #DEF (CHAIN ID CANNOT BE PARSED)")
 
   else: 
     fatal_error ("CHAIN OR PROG NAME ERROR IN #DEF")
