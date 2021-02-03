@@ -160,9 +160,9 @@ def update_hike_defs (file_name : str):
 
   def find_class_of_op(instr):
     for line in stripped:
-      if re.match ('HIKE_ALU64_IMM_INSN\('+instr,line) :
+      if re.match ('HIKE_ALU64_IMM_INSN\s*\(\s*'+instr,line) :
         return 'HIKE_ALU64'
-      elif re.match ('HIKE_JMP64_IMM_INSN\('+instr,line) :
+      elif re.match ('HIKE_JMP64_IMM_INSN\s*\(\s*'+instr,line) :
         return 'HIKE_JMP64'
     fatal_error("OPERATION NOT FOUND: "+instr)
 
