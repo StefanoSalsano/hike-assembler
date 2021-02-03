@@ -1,6 +1,10 @@
 import copy
 import pprint
 
+import re
+
+HIKE_DEFS_FILE = 'hike-definitions.h'
+
 # TODO IMPLEMENT THE MAIN PROGRAM WITH PROPER PARAMETERS AND OUTPUT
 # TODO CHECK TO AVOID REDEFINITION OF A LABEL OR OF A PROGRAM/CHAIN NAME
 # TODO READ THE INSTRUCTIONS CODES FROM THE .H 
@@ -122,6 +126,68 @@ hike_call_inst_sample = {
   'chain_name' : '',
   'instr' : {} 
 }
+
+def update_hike_defs (file_name : str):
+
+  global hike_instructions
+
+  hike_instr_map = {
+  'JA64': {'op':'HIKE_JA', 'class':'', 'modifier':'HIKE_K'},  
+  'JEQ64': {'op':'HIKE_JEQ', 'class':'', 'modifier':'HIKE_K'},  
+  'JGT64': {'op':'HIKE_JGT', 'class':'', 'modifier':'HIKE_K'}, 
+  'JGE64': {'op':'HIKE_JGE', 'class':'', 'modifier':'HIKE_K'}, 
+  'JNE64': {'op':'HIKE_JNE', 'class':'', 'modifier':'HIKE_K'},
+  'JLT64': {'op':'HIKE_JLT', 'class':'', 'modifier':'HIKE_K'}, 
+  'JLE64': {'op':'HIKE_JLE', 'class':'', 'modifier':'HIKE_K'},
+  'HCALL': {'op':'HIKE_TAIL_CALL', 'class':'HIKE_JMP64', 'modifier':'HIKE_K'},
+  'EXIT':  {'op':'HIKE_EXIT', 'class':'HIKE_JMP64', 'modifier':'HIKE_K'},
+  'ADDS64': {'op':'HIKE_ADD', 'class':'', 'modifier':'HIKE_K'},
+  'MOV64': {'op':'HIKE_MOV', 'class':'', 'modifier':'HIKE_K'},
+  'MOVR64': {'op':'HIKE_MOV', 'class':'', 'modifier':'HIKE_X'},
+  }
+
+  def find_opcode(instr):
+    for line in stripped:
+      if re.match ('#define\s'+instr+'\s',line) :
+        return line.split()[2]
+    fatal_error("OPERATION NOT FOUND: "+instr)
+
+  def find_class_code(my_class):
+    for line in stripped:
+      if re.match ('#define\s'+my_class+'\s',line) :
+        return line.split()[2]
+    fatal_error("OPERATION NOT FOUND: "+my_class)
+
+  def find_class_of_op(instr):
+    for line in stripped:
+      if re.match ('HIKE_ALU64_IMM_INSN\('+instr,line) :
+        return 'HIKE_ALU64'
+      elif re.match ('HIKE_JMP64_IMM_INSN\('+instr,line) :
+        return 'HIKE_JMP64'
+    fatal_error("OPERATION NOT FOUND: "+instr)
+
+  def find_modif(my_modif):
+    for line in stripped:
+      if re.match ('#define\s'+my_modif+'\s',line) :
+        return line.split()[2]
+    fatal_error("MODIFIER NOT FOUND: "+my_modif)
+
+  with open(file_name) as f:
+    h_lines = f.readlines()
+  stripped= []
+  for line in h_lines:
+      stripped.append(line.strip())
+  #print (stripped)
+
+  for instr, model in  hike_instr_map.items():
+    #print (model['op'])
+    #find_opcode(model['op'])
+    hike_instructions[instr]['op']=int(find_opcode(model['op']),0)
+    if model['class'] != '':
+      hike_instructions[instr]['class']=int(find_class_code(model['class']),0)
+    else:
+      hike_instructions[instr]['class']=int(find_class_code(find_class_of_op(model['op'])),0)
+    hike_instructions[instr]['modifier']=int(find_modif(model['modifier']),0)  
 
 def check_commas (my_tokens):
   token_num = len (my_tokens)
@@ -377,6 +443,8 @@ def resolve_label_offsets():
 
 def single_oper_bytecode (my_instr):
   instr_model = hike_instructions[my_instr['name']]
+  #print (my_instr['name'])
+  #print (instr_model)
   my_byte0 = instr_model['class'] | instr_model['op'] | instr_model['modifier']
   
   my_instr['bytecode'].append(my_byte0)
@@ -521,6 +589,8 @@ call_instructions = []
 unreferenced_chains = 0
 '''after check_call_references'''
 
+update_hike_defs(HIKE_DEFS_FILE)
+
 #first pass on the code
 for line in all_lines:
   #print(i)
@@ -572,7 +642,6 @@ for line in all_lines:
       fatal_error ("UNNKOWN INSTRUCTION ERROR: "+tokens[0])
 
 #end of first pass on the code
-
 
 print ('Total instructions: '+str(instr_cnt))
 print ('Number of chains: '+str(len(global_chains)))
